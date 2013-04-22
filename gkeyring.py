@@ -42,7 +42,7 @@ class CLI(object):
         desc=\
 '''By default %prog queries the GNOME keyring for items matching specified
 arguments. You can define the item exactly by --id, or search for it using
--p and/or -i.
+--name, -p and/or -i.
 
 It is important to understand that the keyring items are divided into several
 types (see --type) and each contain several properties. Both the item type and
@@ -122,7 +122,12 @@ $ %(prog)s --set --name 'foo' -p bar=baz --keyring login
 Create a new item in keyring 'login' with name 'foo' and property 'bar'.
 
 $ %(prog)s --delete --id 12
-Delete a keyring item with ID 12."""
+Delete a keyring item with ID 12.
+
+$ %(prog)s --name 'backup' -1
+Search for the passwort for (display name) 'backup'. Display name is what you
+see in e.g. the overview of the seahorse GUI.
+"""
         parser.epilog = epilog % {'prog': parser.get_prog_name()}
 
         (options, args) = parser.parse_args()
@@ -137,9 +142,9 @@ Delete a keyring item with ID 12."""
             print >>sys.stderr, 'GNOME keyring is not available!'
             return False
 
-        if not options.params and not options.params_int and \
+        if not options.params and not options.params_int and not options.name and \
         (options.set or not options.id):
-            parser.error('Missing option -p or -i! See --help.')
+            parser.error('For querying please provide --name, -p or -i! See --help.')
 
         # parse string params
         try:
@@ -229,13 +234,15 @@ Delete a keyring item with ID 12."""
                 for match in matches:
                     result = {'id': match.item_id, 'secret': match.secret,
                               'attr': match.attributes}
-                    if 'name' in self.output:
+                    if self.name or 'name' in self.output:
                         # do this only when required, because it pops up
                         # one more 'allow access?' dialog
                         info = gk.item_get_info_sync(self.keyring,
                                                      match.item_id)
                         result['name'] = info.get_display_name()
-                    results.append(result)
+                    # filter by name if desired
+                    if not self.name or (self.name and self.name == result['name']):
+                        results.append(result)
         except gk.Error:
             pass
 
